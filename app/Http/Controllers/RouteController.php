@@ -28,11 +28,14 @@ class RouteController extends Controller
             $data = $response->json();
             list($context, $storeHash) = explode('/', $data['context'], 2);
             $accessToken = $data['access_token'];
+            Log::debug($accessToken);
+
             $storeHash = $data['context'];
             $array = explode('/', $storeHash);
             $storeHash = $array[1];
             $email = $data['user']['email'];
-
+            
+            self::createScript($storeHash, $accessToken, 'https://code.jquery.com/jquery-3.7.1.js', 'jquery.js', 'head');
             self::createScript($storeHash, $accessToken, 'https://pay.paytring.com/iframe.v1.0.0.js', 'paytring.js', 'head');
 
             self::createScript($storeHash, $accessToken, env('AppUrl').'/js/app.js', 'app.js', 'footer');
@@ -56,6 +59,21 @@ class RouteController extends Controller
             'visibility' => 'all_pages',
             'kind' => 'src',
         );
+        $response = Http::withHeaders(['X-Auth-Token' => $accessToken])->post('https://api.bigcommerce.com/stores/'.$storeHash.'/v3/content/scripts', $payload, [
+            'exceptions' => false
+        ]);
+    }
+
+    public function createOrder($storeHash, $accessToken, $file, $name, $location){
+        // $payload = array(
+        //     'status_id' => 1,
+        //     'billing_address':{
+
+        //     },
+        //     'products':[
+        //         {}
+        //     ]
+        // );
         $response = Http::withHeaders(['X-Auth-Token' => $accessToken])->post('https://api.bigcommerce.com/stores/'.$storeHash.'/v3/content/scripts', $payload, [
             'exceptions' => false
         ]);
@@ -96,22 +114,7 @@ class RouteController extends Controller
         $params["hash"] = $hash;
     }
 
-    public function load(){
-        // $params = [
-        //     "amount" => "100",
-        //     "currency" => "INR",
-        //     "callback_url" => "https://httpbin.org/post",
-        //     "cname" => "John Doe",
-        //     "email" => "johndoe@email.com",
-        //     "key" => "test_key",
-        //     "phone" => "8930395227",
-        //     "receipt_id" => "TXN0438400150988993",
-        //     "notes" => [
-        //         "udf1" => "udf1",
-        //         "udf2" => "udf2"
-        //     ],
-        // ];
-
+    public function load(Request $request){
         $params = [
             "amount" => "100",
             "txnID" => "ere3455",
@@ -135,5 +138,35 @@ class RouteController extends Controller
         $url = $data['url'];
           
         Log::debug($url);
+    }
+
+
+    public function generate_paytring_payment_req(Request $request){
+        $api_key = "test_key";
+        $api_secret = "test_secret";
+        $paytring = new Paytring($api_key, $api_secret);
+        $hash = $paytring->CreateOrder("100", uniqid(), env('AppUrl')."/api/callback_at_payment", ['name'=> 'john', 'email'=> 'jo@gmail.com', 'phone'=> '2113242342'], "test");
+        $data = json_decode($hash, true);
+        Log::debug($data);
+        $url = $data['url'];
+        
+        // Log::debug($url);
+        return response()->json(["message"=>"success", "url"=> base64_decode($url)]);
+    }
+
+    public function callback_at_payment(Request $request){
+        $api_key = "test_key";
+        $api_secret = "test_secret";
+        $paytring = new Paytring($api_key, $api_secret);
+        $order = $paytring->FetchOrder($request->input('order_id'));
+        $data = json_decode($order, true);
+        $orderStatus = $data['order']['order_status'];
+        Log::debug($orderStatus);
+        if($orderStatus == 'success'){
+            // Bigcommerce order create
+        }
+        else{
+            return redirect('/failure-page');
+        }
     }
 }

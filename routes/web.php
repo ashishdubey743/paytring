@@ -20,3 +20,5 @@ Route::get('/', function () {
 
 Route::get('auth/callback', [RouteController::class, 'install']);
 Route::get('/load', [RouteController::class, 'load']);
+
+
