@@ -35,7 +35,8 @@ class RouteController extends Controller
             $storeHash = $array[1];
             $email = $data['user']['email'];
             
-            self::createScript($storeHash, $accessToken, 'https://code.jquery.com/jquery-3.7.1.js', 'jquery.js', 'head');
+            self::createScript($storeHash, $accessToken, 'https://checkout-sdk.bigcommerce.com/v1/loader.js', 'jquery.js', 'head');
+            self::createScript($storeHash, $accessToken, 'https://code.jquery.com/jquery-3.7.1.js', 'checkout-sdk.js', 'head');
             self::createScript($storeHash, $accessToken, 'https://pay.paytring.com/iframe.v1.0.0.js', 'paytring.js', 'head');
 
             self::createScript($storeHash, $accessToken, env('AppUrl').'/js/app.js', 'app.js', 'footer');
@@ -64,109 +65,97 @@ class RouteController extends Controller
         ]);
     }
 
-    public function createOrder($storeHash, $accessToken, $file, $name, $location){
-        // $payload = array(
-        //     'status_id' => 1,
-        //     'billing_address':{
+    
 
-        //     },
-        //     'products':[
-        //         {}
-        //     ]
-        // );
-        $response = Http::withHeaders(['X-Auth-Token' => $accessToken])->post('https://api.bigcommerce.com/stores/'.$storeHash.'/v3/content/scripts', $payload, [
-            'exceptions' => false
-        ]);
-    }
-
-    public function create_hash(){
-        $params = [
-            "amount" => "100",
-            "currency" => "INR",
-            "callback_url" => "https://httpbin.org/post",
-            "cname" => "John Doe",
-            "email" => "johndoe@email.com",
-            "key" => "test_key",
-            "phone" => "8930395227",
-            "receipt_id" => "TXN0438400150988993",
-            "notes" => [
-                "udf1" => "udf1",
-                "udf2" => "udf2"
-            ],
-        ];
-        ksort($params);
-
-        // Step 2: Join string values with "|" (excluding objects)
-        $value_string = "";
-        foreach ($params as $key => $value) {
-        if (is_string($value)) {
-            $value_string .= $value . "|";
-        }
-        }
-
-        $value_string .= "test_secret";
-
-        // Step 4: Create hash using SHA512 and convert to lowercase
-        $hash = hash_hmac('sha512', $value_string, 'test_secret', true);
-        $hash = strtolower(bin2hex($hash));
-
-        // Add hash to the parameters
-        $params["hash"] = $hash;
-    }
 
     public function load(Request $request){
-        $params = [
-            "amount" => "100",
-            "txnID" => "ere3455",
-            "callback_url" => "https://httpbin.org/post",
-            "cname" => "John Doe",
-            "email" => "johndoe@email.com",
-            "key" => "test_key",
-            "phone" => "8930395227",
-            "receipt_id" => "TXN0438400150988993",
-            "notes" => [
-                "udf1" => "udf1",
-                "udf2" => "udf2"
-            ],
-        ];
-
-        $api_key = "test_key";
-        $api_secret = "test_secret";
-        $paytring = new Paytring($api_key, $api_secret);
-        $hash = $paytring->CreateOrder("100", "tersud", "https://httpbin.org/post", ['name'=> 'john', 'email'=> 'jo@gmail.com', 'phone'=> '2113242342'], "test");
-        $data = json_decode($hash, true);
-        $url = $data['url'];
-          
-        Log::debug($url);
+      
     }
 
 
     public function generate_paytring_payment_req(Request $request){
-        $api_key = "test_key";
-        $api_secret = "test_secret";
-        $paytring = new Paytring($api_key, $api_secret);
-        $hash = $paytring->CreateOrder("100", uniqid(), env('AppUrl')."/api/callback_at_payment", ['name'=> 'john', 'email'=> 'jo@gmail.com', 'phone'=> '2113242342'], "test");
-        $data = json_decode($hash, true);
-        Log::debug($data);
-        $url = $data['url'];
+
+        // Bicommerce order creation
+        $cartData = $request->input('cart');
+        $shippingAddress = $request->input('shippingAddress');
+        $billingAddress = $request->input('billingAddress');
         
-        // Log::debug($url);
-        return response()->json(["message"=>"success", "url"=> base64_decode($url)]);
+        $requestBody = [
+          "status_id" => 7, // This value might come from elsewhere in your code
+          "billing_address" => [
+            "first_name" => $billingAddress['firstName'],
+            "last_name" => $billingAddress['lastName'],
+            "street_1" => $billingAddress['address1'],
+            "city" => $billingAddress['city'],
+            "state" => "N/A", // Assuming stateOrProvince holds the state data
+            "zip" => $billingAddress['postalCode'],
+            "country" => $billingAddress['country'],
+            "country_iso2" => $billingAddress['countryCode'], // Assuming countryCode holds the ISO 2 code
+            "email" => $billingAddress['email'], // Billing email might be different from cart email
+          ],
+          "products" => [],
+        ];
+        
+        // Loop through cart items and add them to the products array
+        foreach ($cartData['lineItems']['physicalItems'] as $item) {
+          $requestBody['products'][] = [
+            "name" => $item['name'],
+            "quantity" => $item['quantity'],
+            "price_inc_tax" => $item['originalPrice'], // Assuming originalPrice holds the price including tax
+            "price_ex_tax" => $item['originalPrice']-10, // Assuming originalPrice holds the price including tax
+            // You might need to calculate price_ex_tax based on your data structure
+          ];
+        }
+
+        $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->post('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders', $requestBody, [
+            'exceptions' => false
+        ]);
+        $order = json_decode($order);
+
+        
+
+        // Paytring order creation
+        $paytring = new Paytring(env('ApiKey'), env('ApiSecret'));
+        Log::debug($request->input('amount'));
+        $amount = $request->input('amount')*100;
+        $txnID = uniqid();
+        Log::debug("orderid--");
+        Log::debug($order->id);
+        Log::debug($requestBody);
+        $callback_url = env('AppUrl')."/api/callback_at_payment/".$order->id;
+        $customer = [
+                    'name'=> $billingAddress['firstName'].' '.$billingAddress['lastName'], 
+                    'email'=> $billingAddress['email'], 
+                    'phone'=> $billingAddress['phone']
+                    ];
+        $paymentData = "";
+       
+        $data = $paytring->CreateOrder($amount, $txnID, $callback_url, $customer, $paymentData);
+        $data = json_decode($data, true);
+        $hashed_url = $data['url'];
+        
+        return response()->json(["message"=>"success", "url"=> base64_decode($hashed_url)]);
     }
 
-    public function callback_at_payment(Request $request){
-        $api_key = "test_key";
-        $api_secret = "test_secret";
+    // Order status acknowledgement after payment
+    public function callback_at_payment(Request $request, $bigcom_orderid){
+        Log::debug("order_id".$bigcom_orderid);
+        
+        $api_key = env('ApiKey');
+        $api_secret = env('ApiSecret');
         $paytring = new Paytring($api_key, $api_secret);
         $order = $paytring->FetchOrder($request->input('order_id'));
         $data = json_decode($order, true);
         $orderStatus = $data['order']['order_status'];
-        Log::debug($orderStatus);
         if($orderStatus == 'success'){
-            // Bigcommerce order create
+            // Bigcommerce order payment status update
+            $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->put('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$bigcom_orderid, ['status_id'=> 10], [
+                'exceptions' => false
+            ]);
+            if($order) return redirect(env('StoreUrl').'/checkout/order-confirmation');
         }
         else{
-            return redirect('/failure-page');
+            return redirect(env('StoreUrl').'/checkout');
         }
     }
 }
