@@ -118,11 +118,12 @@ class RouteController extends Controller
           ],
           "products" => [],
         ];
-        
+        Log::debug($cartData);
         // Loop through cart items and add them to the products array
         foreach ($cartData['lineItems']['physicalItems'] as $item) {
           $requestBody['products'][] = [
             "name" => $item['name'],
+            "product_id" => $item['productId'],
             "quantity" => $item['quantity'],
             "price_inc_tax" => $item['originalPrice'], // Assuming originalPrice holds the price including tax
             "price_ex_tax" => $item['originalPrice']-10, // Assuming originalPrice holds the price including tax
@@ -176,8 +177,8 @@ class RouteController extends Controller
             $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->put('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$bigcom_orderid, ['status_id'=> 10], [
                 'exceptions' => false
             ]);
-            Log::debug("cartid Success");
-            Log::debug($cartid);
+            // Log::debug("cartid Success");
+            // Log::debug($cartid);
             Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->delete('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v3/carts/'.$cartid);
             if($order) return redirect('/order-confirmation/'.$bigcom_orderid);
         }
@@ -199,6 +200,14 @@ class RouteController extends Controller
                 $products_url = $products->url;
                 $products = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get($products_url);
                 $products = json_decode($products);
+                foreach($products as $product){
+                    $image = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v3/catalog/products/'.$product->product_id.'/images');
+                    $image = json_decode($image);
+                    if($image){
+                        $image_url = $image->data[0]->url_tiny;
+                    }
+                    $product->image_url = $image_url;
+                }
             }
         return view('order-confirmation', compact('order', 'products'));
     }
@@ -212,6 +221,14 @@ class RouteController extends Controller
                 $products_url = $products->url;
                 $products = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get($products_url);
                 $products = json_decode($products);
+                foreach($products as $product){
+                    $image = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v3/catalog/products/'.$product->product_id.'/images');
+                    $image = json_decode($image);
+                    if($image){
+                        $image_url = $image->data[0]->url_tiny;
+                    }
+                    $product->image_url = $image_url;
+                }
             }
         return view('payment-failed', compact('order', 'products'));
     }

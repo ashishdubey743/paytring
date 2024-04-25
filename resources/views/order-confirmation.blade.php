@@ -82,14 +82,14 @@
                <article class="cart optimizedCheckout-orderSummary" data-test="cart">
                   <header class="cart-header">
                      <h3 class="cart-title optimizedCheckout-headingSecondary">Order Summary</h3>
-                     <a class="cart-header-link" href="#" id="cart-print-link">
+                     <!-- <a class="cart-header-link" href="#" id="cart-print-link">
                         <div class="icon">
                            <svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
                               <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"></path>
                            </svg>
                         </div>
                         Print
-                     </a>
+                     </a> -->
                   </header>
                   <section class="cart-section optimizedCheckout-orderSummary-cartSection">
                      <h3 class="cart-section-heading optimizedCheckout-contentPrimary" data-test="cart-count-total">1 Item</h3>
@@ -97,7 +97,7 @@
                         @foreach($products as $product)
                         <li class="productList-item is-visible">
                            <div class="product" data-test="cart-item">
-                              <figure class="product-column product-figure"><img alt="{{ $product->name }}" data-test="cart-item-image" src="https://cdn11.bigcommerce.com/s-ekjie9tctd/products/111/images/371/smithjournal1.1713503738.220.290.jpg?c=1"></figure>
+                              <figure class="product-column product-figure"><img alt="{{ $product->name }}" data-test="cart-item-image" src="{{ $product->image_url }}"></figure>
                               <div class="product-column product-body">
                                  <h4 class="product-title optimizedCheckout-contentPrimary" data-test="cart-item-product-title">{{ $product->quantity }} x {{ $product->name }}</h4>
                               </div>

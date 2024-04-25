@@ -91,3 +91,73 @@ if(document.getElementById('checkout-shipping-continue')){
         location.reload();
     }
 }
+
+
+
+
+const checkForCustomerForm = () => {
+    let formContainer = document.getElementById('checkout-page-container');
+    if(formContainer){
+        clearInterval(checkout_customer_form_interval_id);
+        if(document.getElementById('checkout-customer-continue')){
+            document.getElementById('checkout-customer-continue').onclick = function(){
+                if(document.getElementById('email').value.includes('.com') && document.getElementById('email').value.includes('@')){
+                    const checkForShippingForm = () => {
+                        let shippingFormContainer = document.querySelector('.checkout-step--shipping');
+                        if(shippingFormContainer){
+                            clearInterval(checkout_step_shipping_interval);
+                            // location.reload();
+                            // console.log(document.getElementById('checkout-shipping-continue'));
+                            // alert();
+                            if(document.getElementById('checkout-shipping-continue')){
+                                document.getElementById('checkout-shipping-continue').onclick = function() {
+                                    if($('#firstNameInput').val() != '' && $('#lastNameInput').val() != '' && $('#firstNameInput').val() != '' && $('#addressLine1Input').val() != '' && $('#cityInput').val() != '' && $('#countryCodeInput').val() != '' && $('#postCodeInput').val() != ''){
+                                        const checkForPaymentForm = async () => {
+                                            let paymentForm = document.querySelector('[data-test="payment-form"]');
+                                            if(paymentForm){
+                                                clearInterval(checkForPaymentForm);
+                                                // location.reload();
+                                                // const module = await checkoutKitLoader.load('checkout-sdk');
+                                                // const service = module.createCheckoutService();
+                                                // const state = await service.loadCheckout(cartid);
+                                                // shippingAddress = state.data.getShippingAddress();
+                                                // billingAddress = state.data.getBillingAddress();
+
+                                                const checkSDK = async () => {
+                                                    const module = await checkoutKitLoader.load('checkout-sdk');
+                                                    const service = module.createCheckoutService();
+                                                    const state = await service.loadCheckout(cartid);
+                                                    if(state){
+                                                        clearInterval(checkout_sdk_interval);
+                                                        shippingAddress = state.data.getShippingAddress();
+                                                        billingAddress = state.data.getBillingAddress();
+                                                    }
+                                                }
+                                                const checkout_sdk_interval = setInterval(checkSDK, 2000);
+                                            }
+                                        }
+                                        const payment_form_interval_id = setInterval(checkForPaymentForm, 2000);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    const checkout_step_shipping_interval = setInterval(checkForShippingForm, 2000);
+                }
+            }
+        }
+    }
+}
+const checkout_customer_form_interval_id = setInterval(checkForCustomerForm, 2000);
+
+
+
+$("body").on("click", "#checkout-shipping-continue, #checkout-billing-continue", function() {
+    setTimeout(() => { location.reload() }, 5000);
+    
+});
+
+// $("body").on("click", '.stepHeader is-clickable', function() {
+//   alert();
+//   });
+  
