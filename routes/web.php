@@ -20,5 +20,7 @@ Route::get('/', function () {
 
 Route::get('auth/callback', [RouteController::class, 'install']);
 Route::get('/load', [RouteController::class, 'load']);
+Route::get('/order-confirmation/{orderid}', [RouteController::class, 'order_confirmation']);
+Route::get('/payment-failed/{orderid}', [RouteController::class, 'payment_failed']);
 
 

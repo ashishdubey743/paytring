@@ -5,8 +5,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Paytring\Php\Api as Paytring;
-
-
+use Illuminate\Support\Facades\Validator;
+use Session;
 
 class RouteController extends Controller
 {
@@ -75,8 +75,31 @@ class RouteController extends Controller
 
     public function generate_paytring_payment_req(Request $request){
 
+
+        $rules = [
+            'cart.lineItems.physicalItems.*.name' => 'required|string',
+            'cart.lineItems.physicalItems.*.quantity' => 'required|integer|min:1',
+            'cart.lineItems.physicalItems.*.originalPrice' => 'required|numeric|min:0',
+            'billingAddress.firstName' => 'required|string',
+            'billingAddress.lastName' => 'required|string',
+            'billingAddress.address1' => 'required|string',
+            'billingAddress.city' => 'required|string',
+            'billingAddress.postalCode' => 'required|string',
+            'billingAddress.country' => 'required|string',
+            'billingAddress.countryCode' => 'required|string|size:2',
+            'billingAddress.email' => 'required|email',
+            'amount' => 'required|numeric|min:0.01',
+        ];
+    
+        // Validate the request data
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
         // Bicommerce order creation
         $cartData = $request->input('cart');
+        // Log::debug($cartData);
         $shippingAddress = $request->input('shippingAddress');
         $billingAddress = $request->input('billingAddress');
         
@@ -117,12 +140,13 @@ class RouteController extends Controller
         // Paytring order creation
         $paytring = new Paytring(env('ApiKey'), env('ApiSecret'));
         Log::debug($request->input('amount'));
+        $cartid = $request->input('cartid');
         $amount = $request->input('amount')*100;
         $txnID = uniqid();
         Log::debug("orderid--");
         Log::debug($order->id);
         Log::debug($requestBody);
-        $callback_url = env('AppUrl')."/api/callback_at_payment/".$order->id;
+        $callback_url = env('AppUrl')."/api/callback_at_payment/".$order->id."/".$cartid;
         $customer = [
                     'name'=> $billingAddress['firstName'].' '.$billingAddress['lastName'], 
                     'email'=> $billingAddress['email'], 
@@ -138,7 +162,7 @@ class RouteController extends Controller
     }
 
     // Order status acknowledgement after payment
-    public function callback_at_payment(Request $request, $bigcom_orderid){
+    public function callback_at_payment(Request $request, $bigcom_orderid, $cartid){
         Log::debug("order_id".$bigcom_orderid);
         
         $api_key = env('ApiKey');
@@ -152,10 +176,43 @@ class RouteController extends Controller
             $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->put('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$bigcom_orderid, ['status_id'=> 10], [
                 'exceptions' => false
             ]);
-            if($order) return redirect(env('StoreUrl').'/checkout/order-confirmation');
+            Log::debug("cartid Success");
+            Log::debug($cartid);
+            Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->delete('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v3/carts/'.$cartid);
+            if($order) return redirect('/order-confirmation/'.$bigcom_orderid);
         }
         else{
-            return redirect(env('StoreUrl').'/checkout');
+            $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->put('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$bigcom_orderid, ['status_id'=> 5], [
+                'exceptions' => false
+            ]);
+            if($order) return redirect('/payment-failed/'.$bigcom_orderid);
+            
         }
+    }
+
+    public function order_confirmation($orderid){
+        // get order based on order id
+        $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$orderid);
+            $order = json_decode($order);
+            $products = $order->products;
+            if($products){
+                $products_url = $products->url;
+                $products = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get($products_url);
+                $products = json_decode($products);
+            }
+        return view('order-confirmation', compact('order', 'products'));
+    }
+
+    public function payment_failed($orderid){
+        // get order based on order id
+        $order = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get('https://api.bigcommerce.com/stores/'.env('StoreHash').'/v2/orders/'.$orderid);
+            $order = json_decode($order);
+            $products = $order->products;
+            if($products){
+                $products_url = $products->url;
+                $products = Http::withHeaders(['X-Auth-Token' => env('AccessToken'), 'Accept' => 'application/json'])->get($products_url);
+                $products = json_decode($products);
+            }
+        return view('payment-failed', compact('order', 'products'));
     }
 }

@@ -1,6 +1,6 @@
 
 let paymentFormList;
-let baseurl = "https://7962-59-163-196-138.ngrok-free.app";
+let baseurl = "https://fa61-59-163-196-138.ngrok-free.app";
 let storeUrl = location.origin;
 let cartid;
 let shippingAddress;
@@ -52,7 +52,7 @@ function generate_paytring_payment_req(){
     $.ajax({
         url: baseurl+"/api/generate_paytring_payment_req",
         type: "POST",
-        data: { _token : csrfToken, name: shippingAddress.firstName+ ' '+ shippingAddress.lastName , email:shippingAddress.email , phone:shippingAddress.phone , amount: cart[0].cartAmount, cart:cart[0], shippingAddress:shippingAddress, billingAddress:billingAddress },
+        data: { _token : csrfToken, name: shippingAddress.firstName+ ' '+ shippingAddress.lastName , email:shippingAddress.email , phone:shippingAddress.phone , amount: cart[0].cartAmount, cart:cart[0], shippingAddress:shippingAddress, billingAddress:billingAddress, cartid:cart[0].id },
         dataType: "json",
         success: function(response){
             if (response.url) {
@@ -85,3 +85,9 @@ async function get_cart(){
     }
 }
 get_cart();
+
+if(document.getElementById('checkout-shipping-continue')){
+    document.getElementById('checkout-shipping-continue').onclick = function(){
+        location.reload();
+    }
+}

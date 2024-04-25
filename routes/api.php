@@ -21,5 +21,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::post('/generate_paytring_payment_req', [RouteController::class, 'generate_paytring_payment_req']);
 // Route::post('/callback_at_payment', [RouteController::class, 'callback_at_payment']);
-Route::post('/callback_at_payment/{orderid}', [RouteController::class, 'callback_at_payment']);
+Route::post('/callback_at_payment/{orderid}/{cartid}', [RouteController::class, 'callback_at_payment']);
 Route::post('/create_bigcommerce_order', [RouteController::class, 'create_bigcommerce_order']);
